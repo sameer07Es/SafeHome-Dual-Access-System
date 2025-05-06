@@ -1,0 +1,144 @@
+// Author:Sameer07Es
+// published on :may 2025
+// MIT LICENSE APPLIED#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+#include <Keypad.h>
+#include <SPI.h>
+#include <MFRC522.h>
+#include <String.h>
+#define SS_PIN 10
+#define RST_PIN 9
+MFRC522 rfid(SS_PIN, RST_PIN);
+LiquidCrystal_I2C lcd(0x27, 16, 2); 
+const byte ROWS = 4; 
+const byte COLS = 3; 
+char keys[ROWS][COLS] = {
+  {'1', '2', '3'},
+  {'4', '5', '6'},
+  {'7', '8', '9'},
+  {'*', '0', '#'}
+};
+byte rowPins[ROWS] = {2, 3, 4, 5}; 
+byte colPins[COLS] = {6, 7, A0};   
+Keypad keypad = Keypad(makeKeymap(keys), rowPins, colPins, ROWS, COLS);
+
+const int solenoidPin = 8; 
+const int buzzerPin = A1;   
+const String password = "1234";
+
+byte validUID[4] = {0x63, 0x77, 0xA6, 0xC5}; 
+const char* messages[] = 
+{
+  "System locked",
+  "RFID detected!",
+  "Verifying key...",
+  "Access Granted",
+  "Incorrect!",
+  "Lock opened!"
+};
+
+int incorrectAttempts = 0;
+
+void printMessage(const char* message) 
+{
+  lcd.clear();           
+  lcd.setCursor(0, 0);   
+  for (int i = 0; message[i] != '\0'; i++) 
+  {
+    lcd.print(message[i]); 
+    delay(150);           
+  }
+}
+
+void setup() 
+{
+  SPI.begin();
+  rfid.PCD_Init();
+  lcd.init();      
+  lcd.backlight(); 
+  pinMode(solenoidPin, OUTPUT); 
+  pinMode(buzzerPin, OUTPUT);     
+  digitalWrite(solenoidPin, HIGH);
+  digitalWrite(buzzerPin, LOW);  
+  printMessage(messages[0]);      
+}
+
+void loop() {
+  if (rfid.PICC_IsNewCardPresent() && rfid.PICC_ReadCardSerial()) 
+  {
+    if (isValidUID(rfid.uid.uidByte)) 
+    {
+      printMessage(messages[1]); 
+      openLock();
+      rfid.PICC_HaltA();
+      printMessage(messages[0]); 
+    } 
+    else 
+    {
+      printMessage(messages[4]); 
+    }
+  }
+
+  static String inputPassword = ""; 
+  char key = keypad.getKey();
+  if (key) 
+  {
+    Serial.print("Key pressed: ");
+    Serial.println(key); 
+    if (key == '#') 
+    { 
+      printMessage(messages[2]); 
+      delay(1000); 
+      if (inputPassword == password) 
+      {
+        openLock();
+        printMessage(messages[3]); 
+        incorrectAttempts = 0;  
+      } 
+      else 
+      {
+        printMessage(messages[4]); 
+        incorrectAttempts++;      
+        if (incorrectAttempts >= 5) 
+        {
+          triggerBuzzer();      
+          incorrectAttempts++;   
+        }
+      }
+      delay(2000); 
+      inputPassword = ""; 
+      printMessage(messages[0]); 
+    } 
+    else 
+    {
+      inputPassword += key; 
+    }
+  }
+}
+
+void openLock() 
+{
+  digitalWrite(solenoidPin, LOW); 
+  printMessage(messages[5]); 
+  delay(5000); 
+  digitalWrite(solenoidPin, HIGH);
+
+}
+bool isValidUID(byte *readUID) 
+{
+  for (byte i = 0; i < 4; i++) 
+  {
+    if (readUID[i] != validUID[i]) return false;
+  }
+  return true;
+}
+
+void triggerBuzzer() {
+  for (int i = 0; i < 5; i++) 
+  {
+    digitalWrite(buzzerPin, HIGH); 
+    delay(500);                    
+    digitalWrite(buzzerPin, LOW);  
+    delay(500);                    
+  }
+}
