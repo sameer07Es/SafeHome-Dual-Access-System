@@ -1,6 +1,10 @@
-// Author:Sameer07Es
+// Author.      :Sameer07Es
 // published on :may 2025
-// MIT LICENSE APPLIED#include <Wire.h>
+// ALL RIGTHTS RESERSED AND MIT LICENSED 
+
+
+
+#include <Wire.h>
 #include <LiquidCrystal_I2C.h>
 #include <Keypad.h>
 #include <SPI.h>
